@@ -87,6 +87,9 @@ The starting point is the language of aha-aql 0.24. Version 1 adds:
 - `field IN (SELECT ...)`, not correlated, one level deep. `NOT` negates it,
   as for an `IN` list.
 - `HAVING`
+- `field MATCH 'text'`, a search condition that the backend answers. It is
+  allowed only on a field that the catalog marks as a search field. This is
+  the form of full text search in SQLite.
 
 Everything else stays out of version 1. Examples are a statement for actions
 that are not records, arithmetic in the select list, and a join of more than
@@ -137,7 +140,8 @@ These rules apply to every adapter:
 
 1. A plan returns a superset: every record that matches the conditions it
    claims. The filter of the backend saves time. The result comes from the
-   evaluation in the engine.
+   evaluation in the engine. The exception is a `MATCH` condition, which the
+   backend alone answers.
 2. A statement is answered completely or refused with a scope message.
 3. The engine counts requests and pages against a budget. An adapter cannot
    exceed it.
@@ -201,15 +205,11 @@ The specification names none of these tools. They belong to the hints for Go.
 
 ## 6. Open points
 
-- The second backend. A candidate is the mail index of mu. It would add two
-  points to the contract. The first is a condition that only the backend can
-  answer, such as a full text search. The second is `ORDER BY` with `LIMIT` in
-  the backend. That is allowed only when the backend applies all conditions
-  exactly.
-- The keyword for a condition that only the backend can answer. SQL has two
-  candidates: `MATCH`, an operator for full text search in SQLite, and
-  `SEARCH`, a function for it in BigQuery. Both are reserved words of the SQL
-  standard, where they have other meanings.
+- The second backend. A candidate is the mail index of mu. It would add a
+  point to the contract: `ORDER BY` with `LIMIT` in the backend. That is
+  allowed only when the backend applies all conditions exactly.
+- The places in a condition where `MATCH` is allowed, for example under `OR`
+  or `NOT`.
 - A left join in version 1, in addition to the inner join.
 - The notation for catalog tables. It could extend the TYPE tables of PCD.
 - Lint rules in PCD for the token table and the grammar block.
