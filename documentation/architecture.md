@@ -122,7 +122,12 @@ build. A build with a reported conflict fails.
 
 - Text with an apostrophe inside a word gets a second attempt with a lenient
   text pattern.
-- A known mistake has its own grammar rule and its own message.
+- The grammar has the valid statements only. When it cannot read a
+  statement, a table chooses the message. The table looks at the first token
+  that cannot be read, at the two tokens before it, and at the token kinds
+  that the grammar allows at that place.
+- The grammar reads a few forms that AQL does not have, and a check after the
+  parser refuses them. Each of these forms gets its own message in this way.
 - Messages about names, types and labels come from the code after the parser.
 - A message says what to write instead and shows a statement that works.
 
@@ -161,11 +166,12 @@ The engine has a limit for each of these:
 - the length of a statement
 - the number of tokens
 - the nesting depth
-- the length of an `IN` list
 - the length of a `LIKE` pattern
 - the length of text that a message repeats
 
-`LIKE` is evaluated with constant extra memory. Each limit has a message.
+The limit for tokens also limits an `IN` list. `LIKE` is evaluated with
+constant extra memory. A statement above one of the first four limits is
+refused with a message. Text that a message repeats is cut at its limit.
 
 ### 4.10 Binding for Go
 
