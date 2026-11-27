@@ -35,7 +35,7 @@ Reasons for this form:
 |---|---|
 | AQL | the language |
 | libaql | the library with the engine and the MCP shell |
-| aql | this repository |
+| aql | this repository. In code it is also the name of the library: the Go package and the Rust crate. |
 | `mcp-server-<backend>-aql` | a server for one backend, for example `mcp-server-aha-aql` |
 
 Other products use the acronym AQL for other languages. Text that a model
@@ -109,15 +109,12 @@ The specification has two formal blocks:
   The first rule wins a tie.
 - a grammar in the notation of the Lemon parser generator, without actions.
 
-A binding generates the parser from the grammar. Its tokenizer comes from the
-token table: a regular expression engine applies the table, or a lexer
-generator builds the tokenizer from it. No scanning or parsing logic is
-written by hand. A check compares the patterns and rules in the code with the
-two blocks.
+A binding generates the parser from the grammar and the tokenizer from the
+token table. No scanning or parsing logic is written by hand. A check compares
+the patterns and rules in the code with the two blocks.
 
-Every pattern gives the same match in an engine that looks for the longest
-match and in an engine that takes the first alternative. A binding can use an
-engine of either kind.
+Every pattern gives the same match with a tool that looks for the longest
+match and with a tool that takes the first alternative.
 
 ### 4.5 A grammar without conflicts
 
@@ -187,31 +184,37 @@ own hints, and the specification names none of its tools.
 
 Rules for every binding:
 
-- The parser comes from lemongrass (see 4.11), at one pinned version for all
-  bindings. A build with a reported conflict fails.
+- The parser comes from lemongrass (see 4.11) and the tokenizer from re2c (see
+  4.12). All bindings use the same pinned version of each tool.
+- A build with a reported conflict in the grammar fails.
 - The generated files are part of the source. The package build generates them
   again and compares.
-- At run time a binding uses the standard library of its language. One
-  exception is possible when its hints name it with a pinned version: a
-  regular expression engine, where the standard library has none.
+- At run time a binding uses the standard library of its language and no
+  other library.
 
-Go:
+Place and names:
 
-- The token table runs on the regular expression package of the standard
-  library, which works in linear time. Go does not need the exception.
-
-Rust:
-
-- The standard library has no regular expression engine. The tokenizer needs a
-  crate for regular expressions or a lexer generator. The choice is open.
+- The bindings are in this repository, beside the specification. The Go module
+  is in `go/aql/` and the Rust crate is in `rust/aql/`. Each of the two
+  directories has the complete result of one translation.
+- In code the library has the name `aql`. This is the name of the Go package
+  and of the Rust crate. libaql stays the name of the component in the
+  specification.
+- The import path of the Go package is `github.com/mge1512/aql/go/aql`. Go
+  needs the directory of a module at the start of its release tags, so a tag
+  of the Go module starts with `go/aql/`.
+- No build takes the Rust crate from crates.io by its name alone. A server
+  names the source of the crate and builds from vendored sources. From its
+  first release on, the crate is also published on crates.io, so that nobody
+  else can take the name.
 
 ### 4.11 One parser generator for all bindings
 
 The parser generator is [lemongrass](https://github.com/mge1512/lemongrass).
 It is the Lemon parser generator of SQLite with one addition: a template can
 describe the syntax of its target language. lemongrass has templates for C, Go
-and Rust. An earlier plan had goyacc for the Go binding and no generator for
-the Rust binding.
+and Rust. The bindings pin its first release, 0.1.0. An earlier plan had
+goyacc for the Go binding and no generator for the Rust binding.
 
 Reasons:
 
@@ -249,7 +252,45 @@ What follows for a binding:
 - The parser file for Go has line directives with the file names of the call.
   The build therefore calls lemongrass with fixed arguments.
 
-### 4.12 Place in PCD
+### 4.12 One lexer generator for all bindings
+
+The lexer generator is [re2c](https://re2c.org). It reads rules with regular
+expressions and writes a tokenizer as code of the target language. An earlier
+plan had the regular expression package of the standard library for Go and an
+open choice for Rust.
+
+Reasons:
+
+- re2c writes tokenizers for Go and for Rust. Both bindings take theirs from
+  the same rules, so the two tokenizers find the same tokens.
+- The tokenizer that it writes needs no library. The Rust tokenizer has no
+  `unsafe` code.
+- re2c takes the longest match, and the first rule wins a tie. The token table
+  has the same rule.
+- Both bindings take the classes for letters and spaces from the same file of
+  re2c. They therefore agree on every character.
+- re2c is in the public domain, like Lemon.
+- Debian and Ubuntu have re2c as a package.
+
+A test on 2026-11-27 with re2c 3.1 compared three tokenizers. Two came from
+re2c, one for Go and one for Rust. The third applied the token table with the
+regular expression package of Go. The inputs were the 132 texts between
+backticks in the examples of the specification, 27 other statements and 80000
+random texts. Each input was read with the strict and with the lenient
+patterns. The three tokenizers gave the same tokens for every input.
+
+What follows for a binding:
+
+- The patterns are written once, as rules of re2c, in a file that both
+  bindings include. Each binding adds the actions in its language.
+- re2c reads the input as UTF-8.
+- The generated file is large: about 1.3 MB for each binding, with the strict
+  and the lenient tokenizer. The class of letters covers all scripts, and
+  this needs many states. A compiler needs about 30 seconds for the file.
+- The rules of re2c do not have the notation of the token table. The check of
+  4.4 for the token table is therefore still to be designed.
+
+### 4.13 Place in PCD
 
 - libaql is one component with `Deployment: library`.
 - A server has `Deployment: mcp-server` and binds to libaql through
@@ -278,18 +319,17 @@ What follows for a binding:
 - The places in a condition where `MATCH` is allowed, for example under `OR`
   or `NOT`.
 - A left join in version 1, in addition to the inner join.
-- The tokenizer of the Rust binding: a crate for regular expressions or a
-  lexer generator.
-- A release of lemongrass and a package of it. A binding can then pin a
-  version. Today it can pin a commit only.
-- The layout of the repository for two bindings, with the names of the Go
-  module and of the Rust crate.
+- The notation of the token table. Today the specification has its own
+  notation, and the rules of re2c are a second text. The table could be
+  written as rules of re2c, as the grammar is written in the notation of
+  Lemon.
+- A package of lemongrass for the build of a binding.
 - The version of a binding and its relation to the Version of the
   specification. This includes a second translation without a change of the
   specification.
-- The Unicode version. The classes for letters and spaces come from the tables
-  of the tools of a binding. Two bindings with tables of different Unicode
-  versions can read a name with a new letter differently.
+- The Unicode version. Both bindings take the classes for letters and spaces
+  from the same file of re2c. The specification names no Unicode version, and
+  a newer re2c can bring newer classes.
 - A text that is not valid Unicode. Some languages allow such a text in a
   string, other languages do not. The specification does not say yet what the
   library does with it.

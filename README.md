@@ -93,19 +93,20 @@ translate again.
 
 The front end of `libaql` is declarative. The specification has a token
 table of regular expressions and a grammar in the notation of the Lemon
-parser generator. A parser generator builds the parser from the grammar,
-and the build fails when the generator reports a conflict. No scanner and
-no parser is written by hand.
+parser generator. A lexer generator builds the tokenizer from the table,
+and a parser generator builds the parser from the grammar. The build fails
+when the parser generator reports a conflict. No scanner and no parser is
+written by hand.
 
 The parser generator is
 [lemongrass](https://github.com/mge1512/lemongrass), the Lemon parser
-generator of SQLite with templates for Go and Rust. The parser that it
-writes needs no library.
+generator of SQLite with templates for Go and Rust. The lexer generator is
+[re2c](https://re2c.org). The code that the two tools write needs no
+library.
 
 The specification names no target language. The first bindings are Go and
-Rust. At run time a binding needs the standard library of its language. A
-language whose standard library has no regular expression engine may add
-one.
+Rust. In code the library has the name `aql`. At run time a binding needs
+the standard library of its language and no other library.
 
 ## Repository layout
 

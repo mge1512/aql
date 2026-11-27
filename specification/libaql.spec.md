@@ -2,7 +2,7 @@
 
 ## META
 Deployment:   library
-Version:      0.4.0
+Version:      0.5.0
 Spec-Schema:  0.4.0
 Author:       Matthias G. Eckermann <mge@mailbox.org>
 License:      MIT
@@ -787,10 +787,8 @@ ERRORS:
 RUNTIME-DEPENDENCIES:
   - external-libraries: forbidden
     reason: every server that uses libaql takes its code over. The
-      library uses the standard library of the target language. One
-      exception is possible, and only when the hints of a language
-      name it with a pinned version: a regular expression engine,
-      where the standard library has none.
+      library uses the standard library of the target language and
+      no other library.
 
 FRONT-END:
   - generated-parser: required
@@ -801,11 +799,11 @@ FRONT-END:
     // language only. Where the parser has a limit for its stack, the
     // limit is above what a statement with MaxTokens tokens needs.
   - table-driven-tokenizer: required
-    // The tokenizer comes from the token table of tokenize. Either a
-    // regular expression engine applies the patterns at run time, or a
-    // lexer generator builds the tokenizer from them at build time. In
-    // both cases the running time grows linearly with the length of
-    // the text.
+    // The tokenizer comes from the token table of tokenize. A lexer
+    // generator builds it from the patterns at build time. The
+    // tokenizer that it writes needs the standard library of the
+    // target language only. Its running time grows linearly with the
+    // length of the text.
   - hand-written-scanner-or-parser: forbidden
     // No code of the implementation decides by rules of its own what a
     // token is, or whether tokens are a statement.
@@ -817,9 +815,8 @@ FRONT-END:
 
 ## DEPENDENCIES
 
-none by name. libaql uses the standard library of the target language
-(TOOLCHAIN-CONSTRAINTS: RUNTIME-DEPENDENCIES). Where a language needs the
-exception, its hints name the library and pin the version. A parser
+none. libaql uses the standard library of the target language and no
+other library (TOOLCHAIN-CONSTRAINTS: RUNTIME-DEPENDENCIES). A parser
 generator and a lexer generator are tools of the build.
 
 ## PRECONDITIONS
