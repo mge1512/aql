@@ -2,7 +2,7 @@
 
 ## META
 Deployment:   library
-Version:      0.1.0
+Version:      0.3.0
 Spec-Schema:  0.4.0
 Author:       Matthias G. Eckermann <mge@mailbox.org>
 License:      MIT
@@ -168,9 +168,11 @@ Aql {
   // and calls these methods. A BEHAVIOR of this specification defines
   // each of them. The interface has the Version of this specification,
   // and the rules of the library deployment template for a public
-  // interface apply.
+  // interface apply. An implementation writes the names of the methods,
+  // of the types and of their fields in the style of its target
+  // language.
   required-methods:
-    ParseStatement(text, allowed_kinds, guide) -> (Statement, AqlError)
+    ParseStatement(text, allowed_kinds, guide) -> Statement | AqlError
 
   implementations-required:
     production:  the library itself
@@ -501,13 +503,18 @@ bad_date  bad      {digit}{4}-{digit}{2}-{digit}{2}({letter}|{digit}|_|-)+
 bad_num   bad      -?{digit}+(\.{digit}+)?({letter}|{digit}|_|\.)+
 ```
 
-Lenient patterns. They add one alternative: a letter or digit, followed by
-one or more groups of an apostrophe and a letter.
+Lenient patterns. They add one alternative in the first place: a letter or
+digit, followed by one or more groups of an apostrophe and a letter.
 
 ```
-text_1    TEXT     '([^'\\]|''|\\{any}|({letter}|{digit})('{letter})+)*'
-open_1    open     '([^'\\]|''|\\{any}|({letter}|{digit})('{letter})+)*\\?
+text_1    TEXT     '(({letter}|{digit})('{letter})+|[^'\\]|''|\\{any})*'
+open_1    open     '(({letter}|{digit})('{letter})+|[^'\\]|''|\\{any})*\\?
 ```
+
+Two ways of matching. Some engines look for the longest run of a pattern.
+Other engines take the first alternative that fits and repeat as often as
+they can. Every pattern of the two tables gives the same run in both ways,
+so an implementation can use an engine of either kind.
 
 Rules for tokens:
 
@@ -552,7 +559,7 @@ STEPS:
 1. Find the failing token O. It is the first token for which no statement of the grammar starts with the tokens up to and including it. When every token can be read and the statement is not complete, O is END.
 2. P is the token directly before O, and P2 is the token directly before P. P and P2 can be missing.
 3. A token kind K can come next when some statement of the grammar starts with the kinds of the tokens before O, followed by K. END can come next when the tokens before O are a statement of the grammar.
-   MECHANISM: the parser of parse-statement decides this. K can come next when the parser reads the tokens before O and then one token of the kind K, and does not stop at that token.
+   MECHANISM: the generated parser of parse-statement gives the answer, and no other code decides what the grammar allows. The answer comes from the tables of the parser, or from a trial. In a trial the parser reads the tokens before O and then one token of the kind K. K can come next when the parser does not stop at that token.
 4. Take the table of the kind: the read table for select, the describe table for describe, and the write table for insert, update and delete. The first row that applies gives the error → syntax, with the message of that row.
 
 In the tables, `<where>` is the place of O, and "X can come next" is the
@@ -814,16 +821,25 @@ ERRORS:
 RUNTIME-DEPENDENCIES:
   - external-libraries: forbidden
     reason: every server that uses libaql takes its code over. The
-      library uses the standard library of the target language only.
+      library uses the standard library of the target language. One
+      exception is possible, and only when the hints of a language
+      name it with a pinned version: a regular expression engine,
+      where the standard library has none.
 
 FRONT-END:
   - generated-parser: required
-    // A parser generator for LALR(1) grammars in the notation of yacc
-    // builds the parser from the grammar of parse-statement. The build
-    // fails when the generator reports a conflict.
+    // A parser generator builds the parser from the grammar of
+    // parse-statement. The generator reads every LALR(1) grammar and
+    // reports conflicts. The build fails when it reports one. The
+    // parser that it writes needs the standard library of the target
+    // language only. Where the parser has a limit for its stack, the
+    // limit is above what a statement with MaxTokens tokens needs.
   - table-driven-tokenizer: required
-    // A regular expression engine applies the token table of tokenize.
-    // Its running time grows linearly with the length of the text.
+    // The tokenizer comes from the token table of tokenize. Either a
+    // regular expression engine applies the patterns at run time, or a
+    // lexer generator builds the tokenizer from them at build time. In
+    // both cases the running time grows linearly with the length of
+    // the text.
   - hand-written-scanner-or-parser: forbidden
     // No code of the implementation decides by rules of its own what a
     // token is, or whether tokens are a statement.
@@ -835,9 +851,10 @@ FRONT-END:
 
 ## DEPENDENCIES
 
-none. libaql uses the standard library of the target language only
-(TOOLCHAIN-CONSTRAINTS: RUNTIME-DEPENDENCIES). The parser generator is a
-tool of the build and no part of the built library.
+none by name. libaql uses the standard library of the target language
+(TOOLCHAIN-CONSTRAINTS: RUNTIME-DEPENDENCIES). Where a language needs the
+exception, its hints name the library and pin the version. A parser
+generator and a lexer generator are tools of the build.
 
 ## PRECONDITIONS
 
@@ -1061,6 +1078,18 @@ THEN:
     source: { entity: tickets }
     where:  AnyOf [ code = 'A', code = 'B' ]
   no second reading is made
+
+### EXAMPLE: statement_at_the_token_limit (of: parse-statement)
+GIVEN:
+  the fixture guide
+  a statement of 1000 tokens: `SELECT id FROM tickets WHERE `, then `NOT ` 992 times, then `id = 1`
+WHEN:
+  parse-statement reads this statement with the read set
+THEN:
+  the result is the ReadStatement
+    items:  [id]
+    source: { entity: tickets }
+    where:  a Negation whose member is a Negation, and so on for 992 Negations. The member of the last one is `id = 1`
 
 ### EXAMPLE: statement_above_the_length_limit (of: parse-statement)
 GIVEN:
@@ -1651,6 +1680,11 @@ Runtime: a linkable library. It has no executable entry point, no command
 line and no service of its own. A server for one backend uses it at build
 time through the linkage of the target language. The library deployment
 template and the hints resolve the language and the form of the artifact.
+
+Target languages:
+  This specification is written for more than one target language. It
+  names no module, no tool and no version of a tool. The hints of each
+  language name them.
 
 Front end:
   The token table of tokenize and the grammar of parse-statement are the

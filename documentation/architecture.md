@@ -1,6 +1,6 @@
 # AQL architecture
 
-This document records the design decisions for AQL and libaql as of 2026-11-26.
+This document records the design decisions for AQL and libaql as of 2026-11-27.
 The specification of libaql follows it. Where the two differ, the specification
 is right and this document needs an update.
 
@@ -69,10 +69,10 @@ The engine contains no MCP code, so it can be tested alone.
 
 ### 4.1 An engine of our own, as a library
 
-libaql has its own engine and no embedded SQL database. It is small, it adds
-no runtime dependency, and we decide the wording of every message. As a
-library it is translated and reviewed once, and every server uses the same
-code.
+libaql has its own engine and no embedded SQL database. It is small, it brings
+no database engine with it, and we decide the wording of every message. As a
+library it is translated and reviewed once for each target language, and every
+server in that language uses the same code.
 
 ### 4.2 One language for reading and changing
 
@@ -109,9 +109,15 @@ The specification has two formal blocks:
   The first rule wins a tie.
 - a grammar in yacc notation without actions.
 
-A binding generates the parser from the grammar and drives the token table with
-a regular expression engine. No scanning or parsing logic is written by hand.
-A check compares the patterns and rules in the code with the two blocks.
+A binding generates the parser from the grammar. Its tokenizer comes from the
+token table: a regular expression engine applies the table, or a lexer
+generator builds the tokenizer from it. No scanning or parsing logic is
+written by hand. A check compares the patterns and rules in the code with the
+two blocks.
+
+Every pattern gives the same match in an engine that looks for the longest
+match and in an engine that takes the first alternative. A binding can use an
+engine of either kind.
 
 ### 4.5 A grammar without conflicts
 
@@ -173,22 +179,75 @@ The limit for tokens also limits an `IN` list. `LIKE` is evaluated with
 constant extra memory. A statement above one of the first four limits is
 refused with a message. Text that a message repeats is cut at its limit.
 
-### 4.10 Binding for Go
+### 4.10 Bindings
 
-- The parser comes from goyacc of `golang.org/x/tools`, at a pinned version.
-  The versions 0.46.0 to 0.53.0 contain the same generator.
+A binding is the library in one target language. The specification is written
+for more than one. The first bindings are Go and Rust. Each binding has its
+own hints, and the specification names none of its tools.
+
+Rules for every binding:
+
+- The parser comes from lemongrass (see 4.11), at one pinned version for all
+  bindings. A build with a reported conflict fails.
+- The generated files are part of the source. The package build generates them
+  again and compares.
+- At run time a binding uses the standard library of its language. One
+  exception is possible when its hints name it with a pinned version: a
+  regular expression engine, where the standard library has none.
+
+Go:
+
 - The token table runs on the regular expression package of the standard
-  library, which works in linear time.
-- The generated parser file is part of the source. The package build generates
-  it again and compares.
-- goyacc reports a conflict and still ends with status 0. The build therefore
-  checks the report.
-- The first line of the generated file repeats the arguments of the goyacc
-  call. The build therefore calls goyacc with fixed arguments.
+  library, which works in linear time. Go does not need the exception.
 
-The specification names none of these tools. They belong to the hints for Go.
+Rust:
 
-### 4.11 Place in PCD
+- The standard library has no regular expression engine. The tokenizer needs a
+  crate for regular expressions or a lexer generator. The choice is open.
+
+### 4.11 One parser generator for all bindings
+
+The parser generator is [lemongrass](https://github.com/mge1512/lemongrass).
+It is the Lemon parser generator of SQLite with one addition: a template can
+describe the syntax of its target language. lemongrass has templates for C, Go
+and Rust. An earlier plan had goyacc for the Go binding and no generator for
+the Rust binding.
+
+Reasons:
+
+- All bindings use one generator and one notation for the grammar file.
+  lemongrass prints the rules of a grammar file without the actions, so the
+  rules of two bindings can be compared line by line.
+- The parser that it writes needs no library. The Go parser imports nothing.
+  The Rust parser uses the standard library and has no `unsafe` code.
+- lemongrass is in the public domain, like Lemon.
+- The generator is one C file and needs the C library only. A build service
+  can build it from source and offer it as a signed package.
+- It ends with an error status when the grammar has a conflict. It writes the
+  parser file in this case too, so the build checks the status.
+
+What follows for a binding:
+
+- Each binding has its own grammar file. The rules are those of the grammar
+  block in the specification, one rule for each alternative and in the same
+  order. The actions are code of the target language. The check of 4.4
+  compares the rules that lemongrass prints with the grammar block.
+- The parser stack has a limit. It is 100 entries when the grammar file gives
+  none. A statement can need one entry for each token, for example with `NOT`
+  many times in a row. With 100 entries the parser refuses a correct statement
+  that has 150 `NOT` in a row. A binding therefore sets the limit above
+  MaxTokens.
+- To find the token kinds that can come next (see 4.6), a binding makes a
+  trial. A new parser reads the tokens before the failing token and then one
+  token of the kind in question.
+- The templates for Go and Rust have no error symbol and no destructors. AQL
+  needs no error symbol, because the library gives the parser no token after
+  the first one that the parser refuses. Go and Rust free the values
+  themselves.
+- The parser file for Go has line directives with the file names of the call.
+  The build therefore calls lemongrass with fixed arguments.
+
+### 4.12 Place in PCD
 
 - libaql is one component with `Deployment: library`.
 - A server has `Deployment: mcp-server` and binds to libaql through
@@ -205,7 +264,7 @@ The specification names none of these tools. They belong to the hints for Go.
 4. Write statements
 5. Adapter contract and a reference backend for the examples
 6. Shell
-7. Hints for Go, translation, review
+7. Hints, translation and review for each binding: Go first, then Rust
 8. aha-aql moves to libaql. Its recorded probe statements are the regression
    check.
 
@@ -217,6 +276,21 @@ The specification names none of these tools. They belong to the hints for Go.
 - The places in a condition where `MATCH` is allowed, for example under `OR`
   or `NOT`.
 - A left join in version 1, in addition to the inner join.
+- The tokenizer of the Rust binding: a crate for regular expressions or a
+  lexer generator.
+- A release of lemongrass and a package of it. A binding can then pin a
+  version. Today it can pin a commit only.
+- The layout of the repository for two bindings, with the names of the Go
+  module and of the Rust crate.
+- The version of a binding and its relation to the Version of the
+  specification. This includes a second translation without a change of the
+  specification.
+- The Unicode version. The classes for letters and spaces come from the tables
+  of the tools of a binding. Two bindings with tables of different Unicode
+  versions can read a name with a new letter differently.
+- A text that is not valid Unicode. Some languages allow such a text in a
+  string, other languages do not. The specification does not say yet what the
+  library does with it.
 - The notation for catalog tables. It could extend the TYPE tables of PCD.
 - Lint rules in PCD for the token table and the grammar block.
 - A statement for actions that are not records.

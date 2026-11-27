@@ -80,8 +80,8 @@ DELETE FROM entity WHERE id = 'id'
   search. It works on the fields that the catalog marks for it.
 - A write statement changes one record.
 
-Version 0.1.0 of the specification has no `OFFSET`, no outer join, no
-arithmetic and no other function.
+The language has no `OFFSET`, no outer join, no arithmetic and no other
+function.
 
 ## How it is made
 
@@ -97,8 +97,15 @@ parser generator builds the parser from the grammar, and the build fails
 when the generator reports a conflict. No scanner and no parser is written
 by hand.
 
-At run time `libaql` needs the standard library of its language and
-nothing else. The first binding is for Go.
+The parser generator is
+[lemongrass](https://github.com/mge1512/lemongrass), the Lemon parser
+generator of SQLite with templates for Go and Rust. The parser that it
+writes needs no library.
+
+The specification names no target language. The first bindings are Go and
+Rust. At run time a binding needs the standard library of its language. A
+language whose standard library has no regular expression engine may add
+one.
 
 ## Repository layout
 
@@ -110,9 +117,9 @@ nothing else. The first binding is for Go.
 
 ## Status
 
-- The specification is at Version 0.1.0. It has the front end: the tokens,
-  the grammar, the limits, and the messages for a statement that cannot be
-  read.
+- The specification has the front end so far: the tokens, the grammar, the
+  limits, and the messages for a statement that cannot be read. Its Versions
+  are in `documentation/CHANGELOG.md`.
 - Later Versions add the rules for names and types, the evaluation, the
   write statements, the adapter contract and the MCP shell.
 - There is no code and no package yet.
