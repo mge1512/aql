@@ -1,0 +1,6 @@
+libaql (0.6.0-1) unstable; urgency=medium
+
+  * Translation of the specification libaql 0.6.0
+    (sha256 2fafcf9ca530438a6fb11f674789ae149aa9e4e48961b854a40a93e0c0cf6a6f).
+
+ -- Matthias G. Eckermann <mge@mailbox.org>  Sat, 28 Nov 2026 00:00:00 +0000

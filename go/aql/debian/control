@@ -1,0 +1,19 @@
+Source: libaql
+Section: golang
+Priority: optional
+Maintainer: Matthias G. Eckermann <mge@mailbox.org>
+Build-Depends: debhelper-compat (= 13), golang-go (>= 2:1.24), lemongrass (= 0.1.1), re2c (= 4.6)
+Standards-Version: 4.6.2
+Homepage: https://github.com/mge1512/aql
+X-PCD-Spec-SHA256: 2fafcf9ca530438a6fb11f674789ae149aa9e4e48961b854a40a93e0c0cf6a6f
+
+Package: golang-github-mge1512-aql-dev
+Architecture: all
+Multi-Arch: foreign
+Depends: ${misc:Depends}
+Description: Go sources of libaql, the front end of the query language AQL
+ libaql reads the text of one AQL statement for an MCP server. AQL is a
+ small SQL dialect: SELECT and DESCRIBE read, INSERT, UPDATE and DELETE
+ change one record. The library returns the statement, or an error whose
+ message says what to write instead. This package has the sources of the
+ Go module github.com/mge1512/aql/go/aql; there is no executable.

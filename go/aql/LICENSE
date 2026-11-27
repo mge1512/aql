@@ -1,0 +1,7 @@
+SPDX-License-Identifier: MIT
+
+libaql is licensed under the MIT License.
+The text of the license: https://spdx.org/licenses/MIT.html
+Copyright (c) Matthias G. Eckermann <mge@mailbox.org>
+
+generated from spec: libaql.spec.md sha256:2fafcf9ca530438a6fb11f674789ae149aa9e4e48961b854a40a93e0c0cf6a6f

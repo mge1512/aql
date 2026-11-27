@@ -1,0 +1,24 @@
+#!/usr/bin/make -f
+# pcd-spec-sha256: 2fafcf9ca530438a6fb11f674789ae149aa9e4e48961b854a40a93e0c0cf6a6f
+
+GOSRC = debian/golang-github-mge1512-aql-dev/usr/share/gocode/src/github.com/mge1512/aql/go/aql
+export HOME = $(CURDIR)/debian/home
+export GOCACHE = $(CURDIR)/debian/home/go-cache
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+
+override_dh_auto_build:
+	$(MAKE) -C go/aql build
+
+override_dh_auto_test:
+	$(MAKE) -C go/aql test
+
+override_dh_auto_install:
+	install -d $(GOSRC)
+	install -m 0644 go/aql/go.mod go/aql/VERSION go/aql/*.go $(GOSRC)/
+
+override_dh_auto_clean:
+	rm -rf debian/home
