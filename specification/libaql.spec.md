@@ -2,7 +2,7 @@
 
 ## META
 Deployment:   library
-Version:      0.3.0
+Version:      0.4.0
 Spec-Schema:  0.4.0
 Author:       Matthias G. Eckermann <mge@mailbox.org>
 License:      MIT
@@ -221,180 +221,146 @@ STEPS:
    MECHANISM: a parser generator builds the parser from the grammar. The grammar is LALR(1), and the generator reports no conflict.
 9. Run check-forms on the tokens and on the statement that the grammar found. If it has a finding → its error. Otherwise build the Statement by the reading rules below.
 
-Grammar. It is written in the notation of yacc. A name in capital letters
-is a token kind, and every other name is a rule. `statement` is the start
-rule.
+Grammar. It is written in the notation of the Lemon parser generator. A
+name in capital letters is a token kind, and every other name is a rule.
+Each line is one alternative of a rule: the name of the rule, the sign
+`::=`, the token kinds and rules that the alternative reads, in their
+order, and a period. An alternative with nothing after `::=` reads no
+token. An empty line separates two rules and has no other meaning.
+`statement` is the start rule.
 
 ```
-statement   : read end
-            | describe end
-            | insert end
-            | update end
-            | delete end
-            ;
+statement ::= read end.
+statement ::= describe end.
+statement ::= insert end.
+statement ::= update end.
+statement ::= delete end.
 
-end         : /* empty */
-            | SEMI
-            ;
+end ::=.
+end ::= SEMI.
 
-read        : select
-            | from tail
-            | first_item more_items from tail
-            ;
+read ::= select.
+read ::= from tail.
+read ::= first_item more_items from tail.
 
-select      : SELECT items from tail
-            | SELECT DISTINCT items from tail
-            ;
+select ::= SELECT items from tail.
+select ::= SELECT DISTINCT items from tail.
 
-first_item  : STAR
-            | call label_opt
-            ;
+first_item ::= STAR.
+first_item ::= call label_opt.
 
-more_items  : /* empty */
-            | more_items COMMA item
-            ;
+more_items ::=.
+more_items ::= more_items COMMA item.
 
-items       : item
-            | items COMMA item
-            ;
+items ::= item.
+items ::= items COMMA item.
 
-item        : STAR
-            | QSTAR
-            | WORD label_opt
-            | call label_opt
-            ;
+item ::= STAR.
+item ::= QSTAR.
+item ::= WORD label_opt.
+item ::= call label_opt.
 
-label_opt   : /* empty */
-            | AS WORD
-            | AS TEXT
-            ;
+label_opt ::=.
+label_opt ::= AS WORD.
+label_opt ::= AS TEXT.
 
-call        : WORD LPAREN argument RPAREN
-            ;
+call ::= WORD LPAREN argument RPAREN.
 
-argument    : STAR
-            | NUMBER
-            | WORD
-            | DISTINCT WORD
-            ;
+argument ::= STAR.
+argument ::= NUMBER.
+argument ::= WORD.
+argument ::= DISTINCT WORD.
 
-from        : FROM source
-            | FROM source JOIN source ON WORD EQ WORD
-            | FROM source INNER JOIN source ON WORD EQ WORD
-            ;
+from ::= FROM source.
+from ::= FROM source JOIN source ON WORD EQ WORD.
+from ::= FROM source INNER JOIN source ON WORD EQ WORD.
 
-source      : WORD
-            | WORD WORD
-            | WORD AS WORD
-            ;
+source ::= WORD.
+source ::= WORD WORD.
+source ::= WORD AS WORD.
 
-tail        : where_opt group_opt having_opt order_opt limit_opt
-            ;
+tail ::= where_opt group_opt having_opt order_opt limit_opt.
 
-where_opt   : /* empty */
-            | WHERE condition
-            ;
+where_opt ::=.
+where_opt ::= WHERE condition.
 
-group_opt   : /* empty */
-            | GROUP BY words
-            ;
+group_opt ::=.
+group_opt ::= GROUP BY words.
 
-having_opt  : /* empty */
-            | HAVING condition
-            ;
+having_opt ::=.
+having_opt ::= HAVING condition.
 
-order_opt   : /* empty */
-            | ORDER BY keys
-            ;
+order_opt ::=.
+order_opt ::= ORDER BY keys.
 
-limit_opt   : /* empty */
-            | LIMIT NUMBER
-            ;
+limit_opt ::=.
+limit_opt ::= LIMIT NUMBER.
 
-words       : WORD
-            | words COMMA WORD
-            ;
+words ::= WORD.
+words ::= words COMMA WORD.
 
-keys        : key
-            | keys COMMA key
-            ;
+keys ::= key.
+keys ::= keys COMMA key.
 
-key         : sort_item
-            | sort_item ASC
-            | sort_item DESC
-            ;
+key ::= sort_item.
+key ::= sort_item ASC.
+key ::= sort_item DESC.
 
-sort_item   : WORD
-            | TEXT
-            | call
-            ;
+sort_item ::= WORD.
+sort_item ::= TEXT.
+sort_item ::= call.
 
-condition   : conjunction
-            | condition OR conjunction
-            ;
+condition ::= conjunction.
+condition ::= condition OR conjunction.
 
-conjunction : negation
-            | conjunction AND negation
-            ;
+conjunction ::= negation.
+conjunction ::= conjunction AND negation.
 
-negation    : primary
-            | NOT negation
-            ;
+negation ::= primary.
+negation ::= NOT negation.
 
-primary     : comparison
-            | LPAREN condition RPAREN
-            ;
+primary ::= comparison.
+primary ::= LPAREN condition RPAREN.
 
-comparison  : operand EQ value
-            | operand CMP value
-            | operand IS NULL
-            | operand IS NOT NULL
-            | operand not_opt IN LPAREN values RPAREN
-            | operand not_opt IN LPAREN select RPAREN
-            | operand not_opt CONTAINS value
-            | operand not_opt LIKE value
-            | operand not_opt BETWEEN value AND value
-            | operand not_opt MATCH TEXT
-            ;
+comparison ::= operand EQ value.
+comparison ::= operand CMP value.
+comparison ::= operand IS NULL.
+comparison ::= operand IS NOT NULL.
+comparison ::= operand not_opt IN LPAREN values RPAREN.
+comparison ::= operand not_opt IN LPAREN select RPAREN.
+comparison ::= operand not_opt CONTAINS value.
+comparison ::= operand not_opt LIKE value.
+comparison ::= operand not_opt BETWEEN value AND value.
+comparison ::= operand not_opt MATCH TEXT.
 
-not_opt     : /* empty */
-            | NOT
-            ;
+not_opt ::=.
+not_opt ::= NOT.
 
-operand     : WORD
-            | call
-            ;
+operand ::= WORD.
+operand ::= call.
 
-values      : value
-            | values COMMA value
-            ;
+values ::= value.
+values ::= values COMMA value.
 
-value       : TEXT
-            | NUMBER
-            | TRUE
-            | FALSE
-            | NULL
-            ;
+value ::= TEXT.
+value ::= NUMBER.
+value ::= TRUE.
+value ::= FALSE.
+value ::= NULL.
 
-describe    : DESCRIBE
-            | DESCRIBE WORD
-            ;
+describe ::= DESCRIBE.
+describe ::= DESCRIBE WORD.
 
-insert      : INSERT INTO WORD LPAREN words RPAREN VALUES LPAREN values RPAREN
-            ;
+insert ::= INSERT INTO WORD LPAREN words RPAREN VALUES LPAREN values RPAREN.
 
-update      : UPDATE WORD SET assignments WHERE condition
-            ;
+update ::= UPDATE WORD SET assignments WHERE condition.
 
-assignments : assignment
-            | assignments COMMA assignment
-            ;
+assignments ::= assignment.
+assignments ::= assignments COMMA assignment.
 
-assignment  : WORD EQ value
-            ;
+assignment ::= WORD EQ value.
 
-delete      : DELETE FROM WORD WHERE condition
-            ;
+delete ::= DELETE FROM WORD WHERE condition.
 ```
 
 In the rules below, a call is what the rule `call` reads, and a subquery

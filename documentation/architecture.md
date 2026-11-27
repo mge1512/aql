@@ -107,7 +107,7 @@ The specification has two formal blocks:
 
 - a token table with one regular expression per token. The longest match wins.
   The first rule wins a tie.
-- a grammar in yacc notation without actions.
+- a grammar in the notation of the Lemon parser generator, without actions.
 
 A binding generates the parser from the grammar. Its tokenizer comes from the
 token table: a regular expression engine applies the table, or a lexer
@@ -215,9 +215,11 @@ the Rust binding.
 
 Reasons:
 
-- All bindings use one generator and one notation for the grammar file.
-  lemongrass prints the rules of a grammar file without the actions, so the
-  rules of two bindings can be compared line by line.
+- All bindings use one generator and one notation. The grammar block of the
+  specification is written in this notation, and lemongrass reads the block as
+  it is.
+- lemongrass prints the rules of a grammar file without the actions. The rules
+  of a binding can therefore be compared with the block line by line.
 - The parser that it writes needs no library. The Go parser imports nothing.
   The Rust parser uses the standard library and has no `unsafe` code.
 - lemongrass is in the public domain, like Lemon.
@@ -228,10 +230,10 @@ Reasons:
 
 What follows for a binding:
 
-- Each binding has its own grammar file. The rules are those of the grammar
-  block in the specification, one rule for each alternative and in the same
-  order. The actions are code of the target language. The check of 4.4
-  compares the rules that lemongrass prints with the grammar block.
+- Each binding has its own grammar file. Its rules are the lines of the grammar
+  block in the specification, in the same order. The actions are code of the
+  target language. The check of 4.4 compares the rules that lemongrass prints
+  for the grammar file with the lines of the block.
 - The parser stack has a limit. It is 100 entries when the grammar file gives
   none. A statement can need one entry for each token, for example with `NOT`
   many times in a row. With 100 entries the parser refuses a correct statement
