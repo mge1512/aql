@@ -92,11 +92,11 @@ into code. When the code is wrong, we change the specification and
 translate again.
 
 The front end of `libaql` is declarative. The specification has a token
-table of regular expressions and a grammar in the notation of the Lemon
-parser generator. A lexer generator builds the tokenizer from the table,
-and a parser generator builds the parser from the grammar. The build fails
-when the parser generator reports a conflict. No scanner and no parser is
-written by hand.
+table in the notation of the lexer generator re2c and a grammar in the
+notation of the Lemon parser generator. A lexer generator builds the
+tokenizer from the table, and a parser generator builds the parser from
+the grammar. The build fails when the parser generator reports a conflict.
+No scanner and no parser is written by hand.
 
 The parser generator is
 [lemongrass](https://github.com/mge1512/lemongrass), the Lemon parser

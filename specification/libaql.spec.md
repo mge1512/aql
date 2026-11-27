@@ -2,7 +2,7 @@
 
 ## META
 Deployment:   library
-Version:      0.5.0
+Version:      0.6.0
 Spec-Schema:  0.4.0
 Author:       Matthias G. Eckermann <mge@mailbox.org>
 License:      MIT
@@ -426,61 +426,107 @@ STEPS:
    d. Any other kind: the run is one token of that kind. Its values follow the rules for tokens below.
 4. If the statement now has more than MaxTokens tokens → syntax, message L02. Otherwise go on with the character after the run.
 
-Classes of characters:
+Token table. It has two parts: definitions and rows. A definition gives a
+pattern a name. A row has the name of a definition and a kind, and the
+definition with that name is the pattern of the row.
+
+Definitions. They are written in the notation of the lexer generator re2c.
+A generator for this notation takes them over as they are.
 
 ```
-letter   a letter of any script (Unicode general category L)
-digit    one of 0 1 2 3 4 5 6 7 8 9
-space    a tab, a line feed, a vertical tab, a form feed, a carriage
-         return, a space, the character U+0085, or a character of the
-         Unicode general category Z
-any      any character, a line break included
+// classes of characters
+letter     = L;
+digit      = [0-9];
+space      = [\t\n\v\f\r\x20\u0085] | Z;
+any        = [^];
+apostrophe = ['];
+quote      = ["];
+backslash  = [\\];
+
+// one piece of the content of a text
+part_1       = [^'\\] | apostrophe apostrophe | backslash any;
+part_2       = [^"\\] | quote quote | backslash any;
+part_lenient = (letter | digit) (apostrophe letter)+;
+
+// patterns of the rows
+spaces   = space+;
+text_1   = apostrophe part_1* apostrophe;
+text_2   = quote part_2* quote;
+date     = digit{4} "-" digit{2} "-" digit{2};
+number   = "-"? digit+ ("." digit+)?;
+qstar    = (letter | "_") (letter | digit | "_")* ".*";
+word     = (letter | "_") (letter | digit | "_" | ".")*;
+compare  = "!=" | "<>" | "<=" | ">=" | "<" | ">";
+equals   = "=";
+lparen   = "(";
+rparen   = ")";
+comma    = ",";
+semi     = ";";
+star     = "*";
+open_1   = apostrophe part_1* backslash?;
+open_2   = quote part_2* backslash?;
+bad_date = date (letter | digit | "_" | "-")+;
+bad_num  = number (letter | digit | "_" | ".")+;
+
+// lenient patterns of the rows text_1 and open_1
+text_1_lenient = apostrophe (part_lenient | part_1)* apostrophe;
+open_1_lenient = apostrophe (part_lenient | part_1)* backslash?;
 ```
 
-Notation of a pattern. A pattern is a regular expression. `( )` groups,
-`|` separates alternatives, and `*`, `+`, `?` and `{n}` repeat what stands
-before them: any number of times, one or more times, at most once, and n
-times. `[ ]` is one character of a set, and `[^ ]` is one character that
-is not in the set, a line break included. A backslash before a character
-stands for that character. `{letter}`, `{digit}`, `{space}` and `{any}`
-stand for one character of that class. Every other character stands for
-itself.
+Notation of a definition. A definition has a name, the sign `=`, a regular
+expression and a semicolon. A line that starts with `//` is a comment. In
+a regular expression, a name stands for its definition, and text between
+double quotes stands for itself. `[ ]` is one character of a set, and
+`[^ ]` is one character that is not in the set, a line break included.
+`[^]` is any character. In a set, `\t`, `\n`, `\v`, `\f` and `\r` are the
+tab, the line feed, the vertical tab, the form feed and the carriage
+return. `\x20` is the space, `\u0085` is the character U+0085, and `\\`
+is the backslash. `( )` groups, `|` separates alternatives, and `*`, `+`,
+`?` and `{n}` repeat what stands before them: any number of times, one or
+more times, at most once, and n times. Parts that stand one after the
+other match one after the other, and the space between two parts has no
+meaning. `L` and `Z` are the Unicode general categories L and Z. The lexer
+generator has their definitions.
 
-Token table. Each line has the name of the row, its kind and its pattern.
+Classes of characters. `letter` is a letter of any script. `digit` is one
+of 0 1 2 3 4 5 6 7 8 9. `space` is a tab, a line feed, a vertical tab, a
+form feed, a carriage return, a space, the character U+0085, or a
+character of the Unicode general category Z. `any` is any character, a
+line break included.
 
-```
-space     skip     {space}+
-text_1    TEXT     '([^'\\]|''|\\{any})*'
-text_2    TEXT     "([^"\\]|""|\\{any})*"
-date      TEXT     {digit}{4}-{digit}{2}-{digit}{2}
-number    NUMBER   -?{digit}+(\.{digit}+)?
-qstar     QSTAR    ({letter}|_)({letter}|{digit}|_)*\.\*
-word      WORD     ({letter}|_)({letter}|{digit}|_|\.)*
-compare   CMP      !=|<>|<=|>=|<|>
-equals    EQ       =
-lparen    LPAREN   \(
-rparen    RPAREN   \)
-comma     COMMA    ,
-semi      SEMI     ;
-star      STAR     \*
-open_1    open     '([^'\\]|''|\\{any})*\\?
-open_2    open     "([^"\\]|""|\\{any})*\\?
-bad_date  bad      {digit}{4}-{digit}{2}-{digit}{2}({letter}|{digit}|_|-)+
-bad_num   bad      -?{digit}+(\.{digit}+)?({letter}|{digit}|_|\.)+
-```
-
-Lenient patterns. They add one alternative in the first place: a letter or
-digit, followed by one or more groups of an apostrophe and a letter.
+Rows. Each line has the name of a row and its kind. The order of the lines
+is the order of the rows in the table.
 
 ```
-text_1    TEXT     '(({letter}|{digit})('{letter})+|[^'\\]|''|\\{any})*'
-open_1    open     '(({letter}|{digit})('{letter})+|[^'\\]|''|\\{any})*\\?
+spaces    skip
+text_1    TEXT
+text_2    TEXT
+date      TEXT
+number    NUMBER
+qstar     QSTAR
+word      WORD
+compare   CMP
+equals    EQ
+lparen    LPAREN
+rparen    RPAREN
+comma     COMMA
+semi      SEMI
+star      STAR
+open_1    open
+open_2    open
+bad_date  bad
+bad_num   bad
 ```
 
-Two ways of matching. Some engines look for the longest run of a pattern.
-Other engines take the first alternative that fits and repeat as often as
-they can. Every pattern of the two tables gives the same run in both ways,
-so an implementation can use an engine of either kind.
+Lenient patterns. With lenient true, the row text_1 has the pattern
+`text_1_lenient` and the row open_1 has the pattern `open_1_lenient`. They
+add one alternative in the first place: a letter or digit, followed by one
+or more groups of an apostrophe and a letter.
+
+Two ways of matching. Some tools look for the longest run of a pattern.
+Other tools take the first alternative that fits and repeat as often as
+they can. Every pattern of the table gives the same run in both ways, so
+an implementation can use a tool of either kind.
 
 Rules for tokens:
 
@@ -1646,14 +1692,17 @@ template and the hints resolve the language and the form of the artifact.
 
 Target languages:
   This specification is written for more than one target language. It
-  names no module, no tool and no version of a tool. The hints of each
-  language name them.
+  names no module and no version of a tool. It names two tools, the Lemon
+  parser generator and the lexer generator re2c, only for the notation of
+  the grammar and of the token table. The hints of each language name the
+  tools of its build.
 
 Front end:
   The token table of tokenize and the grammar of parse-statement are the
-  source of the tokenizer and of the parser. A translator copies them into
-  the form that its tools read and adds what a rule has to build. It does
-  not change a pattern, a rule or their order.
+  source of the tokenizer and of the parser. A translator takes the
+  definitions of the token table and the lines of the grammar over as
+  they are, and adds what a rule has to build. It does not change a
+  pattern, a rule or their order.
 
 Consumers and version alignment:
   A server binds to this library through its DEPENDENCIES section, and it

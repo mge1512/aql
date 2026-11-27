@@ -105,8 +105,9 @@ A rule of aha-aql that turns out to fit one backend only moves to the adapter.
 
 The specification has two formal blocks:
 
-- a token table with one regular expression per token. The longest match wins.
-  The first rule wins a tie.
+- a token table in the notation of the lexer generator re2c. It has a block of
+  definitions with one pattern for each row, and the list of the rows. The
+  longest match wins. The first row wins a tie.
 - a grammar in the notation of the Lemon parser generator, without actions.
 
 A binding generates the parser from the grammar and the tokenizer from the
@@ -208,6 +209,17 @@ Place and names:
   first release on, the crate is also published on crates.io, so that nobody
   else can take the name.
 
+Versions:
+
+- A binding has the Version of the specification that it was translated from.
+  The rule is the same for every target language.
+- A binding has at most one release for each Version.
+- A new translation without a change of the specification needs a new PATCH
+  Version of the specification. Examples are new hints and a new version of a
+  tool. The changelog entry gives the reason.
+- The release tag of the Go module is `go/aql/v` with the Version, for example
+  `go/aql/v0.6.0`.
+
 ### 4.11 One parser generator for all bindings
 
 The parser generator is [lemongrass](https://github.com/mge1512/lemongrass).
@@ -262,7 +274,7 @@ open choice for Rust.
 Reasons:
 
 - re2c writes tokenizers for Go and for Rust. Both bindings take theirs from
-  the same rules, so the two tokenizers find the same tokens.
+  the same definitions, so the two tokenizers find the same tokens.
 - The tokenizer that it writes needs no library. The Rust tokenizer has no
   `unsafe` code.
 - re2c takes the longest match, and the first rule wins a tie. The token table
@@ -277,18 +289,23 @@ re2c, one for Go and one for Rust. The third applied the token table with the
 regular expression package of Go. The inputs were the 132 texts between
 backticks in the examples of the specification, 27 other statements and 80000
 random texts. Each input was read with the strict and with the lenient
-patterns. The three tokenizers gave the same tokens for every input.
+patterns. The three tokenizers gave the same tokens for every input. At that
+time the token table had a notation of its own. A second run built the Go and
+the Rust tokenizer from the two blocks of specification 0.6.0, with no change
+by hand. It gave the same tokens again.
 
 What follows for a binding:
 
-- The patterns are written once, as rules of re2c, in a file that both
-  bindings include. Each binding adds the actions in its language.
+- The definitions of the token table are a block of the specification. Both
+  bindings include this block as it is. Each binding then has one rule for
+  each row, in the order of the rows, with the action in its language.
+- The check of 4.4 compares the included definitions with the block of the
+  specification, as text. It also compares the names and the order of the
+  rules with the list of the rows.
 - re2c reads the input as UTF-8.
 - The generated file is large: about 1.3 MB for each binding, with the strict
   and the lenient tokenizer. The class of letters covers all scripts, and
   this needs many states. A compiler needs about 30 seconds for the file.
-- The rules of re2c do not have the notation of the token table. The check of
-  4.4 for the token table is therefore still to be designed.
 
 ### 4.13 Place in PCD
 
@@ -319,14 +336,9 @@ What follows for a binding:
 - The places in a condition where `MATCH` is allowed, for example under `OR`
   or `NOT`.
 - A left join in version 1, in addition to the inner join.
-- The notation of the token table. Today the specification has its own
-  notation, and the rules of re2c are a second text. The table could be
-  written as rules of re2c, as the grammar is written in the notation of
-  Lemon.
 - A package of lemongrass for the build of a binding.
-- The version of a binding and its relation to the Version of the
-  specification. This includes a second translation without a change of the
-  specification.
+- The release tag of the Rust crate. Go fixes the form of the tag of its
+  module, Rust does not.
 - The Unicode version. Both bindings take the classes for letters and spaces
   from the same file of re2c. The specification names no Unicode version, and
   a newer re2c can bring newer classes.
