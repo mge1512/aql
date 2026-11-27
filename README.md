@@ -128,7 +128,7 @@ the standard library of its language and no other library.
   [mcp-server-aha-aql](https://github.com/mge1512/aha-aql) for Aha!. It
   has its own engine today, and it moves to `libaql` when the library
   exists.
-- go/aql/ has the first translation of specification Version 0.6.0 to Go.i
+- go/aql/ has the first translation of specification Version 0.6.0 to Go.
   It is not reviewed and not released, and its interface can change.
 
 ## Where AQL comes from
