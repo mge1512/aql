@@ -217,8 +217,9 @@ Versions:
 - A new translation without a change of the specification needs a new PATCH
   Version of the specification. Examples are new hints and a new version of a
   tool. The changelog entry gives the reason.
-- The release tag of the Go module is `go/aql/v` with the Version, for example
-  `go/aql/v0.6.0`.
+- A release tag has the directory of the binding, the letter `v` and the
+  Version: `go/aql/v0.6.0` for the Go module and `rust/aql/v0.6.0` for the
+  Rust crate. Go needs this form, and the Rust crate takes the same one.
 
 ### 4.11 One parser generator for all bindings
 
@@ -233,8 +234,9 @@ Reasons:
 - All bindings use one generator and one notation. The grammar block of the
   specification is written in this notation, and lemongrass reads the block as
   it is.
-- lemongrass prints the rules of a grammar file without the actions. The rules
-  of a binding can therefore be compared with the block line by line.
+- lemongrass prints the rules of a grammar file without the labels and the
+  actions. The rules of a binding can therefore be compared with the block as
+  text.
 - The parser that it writes needs no library. The Go parser imports nothing.
   The Rust parser uses the standard library and has no `unsafe` code.
 - lemongrass is in the public domain, like Lemon.
@@ -247,13 +249,17 @@ What follows for a binding:
 
 - Each binding has its own grammar file. Its rules are the lines of the grammar
   block in the specification, in the same order. The actions are code of the
-  target language. The check of 4.4 compares the rules that lemongrass prints
-  for the grammar file with the lines of the block.
+  target language.
+- The check of 4.4 has two parts for the grammar. lemongrass prints the rules
+  that have an action first. The first part therefore sorts this list and the
+  lines of the block, and then compares them. The second part reads the order
+  of the rules from the grammar file and compares it with the block.
 - The parser stack has a limit. It is 100 entries when the grammar file gives
   none. A statement can need one entry for each token, for example with `NOT`
   many times in a row. With 100 entries the parser refuses a correct statement
-  that has 150 `NOT` in a row. A binding therefore sets the limit above
-  MaxTokens.
+  that has 150 `NOT` in a row. A binding therefore turns the limit of the
+  parser off. The library counts the tokens before the parser runs, so the
+  stack stays at about MaxTokens entries or below.
 - To find the token kinds that can come next (see 4.6), a binding makes a
   trial. A new parser reads the tokens before the failing token and then one
   token of the kind in question.
@@ -261,8 +267,12 @@ What follows for a binding:
   needs no error symbol, because the library gives the parser no token after
   the first one that the parser refuses. Go and Rust free the values
   themselves.
-- The parser file for Go has line directives with the file names of the call.
-  The build therefore calls lemongrass with fixed arguments.
+- The build calls lemongrass without line directives and with the bare name
+  of the grammar file. The parser file then has no path of the build in it,
+  and a second run writes the same bytes.
+- After a token that the parser refuses, it can still report an accepted
+  statement for the rest of the input. A binding therefore stops at the
+  first refused token.
 
 ### 4.12 One lexer generator for all bindings
 
@@ -292,7 +302,8 @@ random texts. Each input was read with the strict and with the lenient
 patterns. The three tokenizers gave the same tokens for every input. At that
 time the token table had a notation of its own. A second run built the Go and
 the Rust tokenizer from the two blocks of specification 0.6.0, with no change
-by hand. It gave the same tokens again.
+by hand. It gave the same tokens again. A Go tokenizer from re2c 4.6 gave
+them too.
 
 What follows for a binding:
 
@@ -303,9 +314,14 @@ What follows for a binding:
   specification, as text. It also compares the names and the order of the
   rules with the list of the rows.
 - re2c reads the input as UTF-8.
-- The generated file is large: about 1.3 MB for each binding, with the strict
-  and the lenient tokenizer. The class of letters covers all scripts, and
-  this needs many states. A compiler needs about 30 seconds for the file.
+- The build calls re2c without the date of the call and without line
+  directives. A second run then writes the same bytes.
+- The first line of the generated file names the version of re2c. The
+  version also decides the classes of characters: from re2c 4.5 on they are
+  those of Unicode 17.0.0. The hints of a binding name the pinned version.
+- The generated file is large: 1.3 MB to 1.5 MB for the Go binding, with the
+  strict and the lenient tokenizer. The class of letters covers all scripts,
+  and this needs many states. A compiler needs about 30 seconds for the file.
 
 ### 4.13 Place in PCD
 
@@ -328,6 +344,10 @@ What follows for a binding:
 8. aha-aql moves to libaql. Its recorded probe statements are the regression
    check.
 
+A first translation of the front end to Go comes before step 2. It proves the
+tools of 4.11 and 4.12 on the specification as it is, before more of the
+specification is built on them.
+
 ## 6. Open points
 
 - The second backend. A candidate is the mail index of mu. It would add a
@@ -337,14 +357,14 @@ What follows for a binding:
   or `NOT`.
 - A left join in version 1, in addition to the inner join.
 - A package of lemongrass for the build of a binding.
-- The release tag of the Rust crate. Go fixes the form of the tag of its
-  module, Rust does not.
 - The Unicode version. Both bindings take the classes for letters and spaces
-  from the same file of re2c. The specification names no Unicode version, and
-  a newer re2c can bring newer classes.
+  from the same file of re2c, so the pinned version of re2c decides it. The
+  specification names no Unicode version.
 - A text that is not valid Unicode. Some languages allow such a text in a
   string, other languages do not. The specification does not say yet what the
-  library does with it.
+  library does with it. A tokenizer from re2c takes a byte that is not valid
+  UTF-8 for no character. Outside a text no row fits then. Inside a text the
+  text does not end.
 - The notation for catalog tables. It could extend the TYPE tables of PCD.
 - Lint rules in PCD for the token table and the grammar block.
 - A statement for actions that are not records.
