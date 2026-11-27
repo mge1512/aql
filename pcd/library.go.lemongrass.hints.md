@@ -3,8 +3,7 @@
 Template:  library
 Language:  Go
 Library:   lemongrass (https://github.com/mge1512/lemongrass)
-Version:   0.1.0
-Release:   1
+Version:   0.1.1
 
 `Version` is the version of the tool. `Release` counts the changes of this
 file since `Version` was last set; a new version of the tool removes the
@@ -13,7 +12,8 @@ line.
 lemongrass is a parser generator: the Lemon parser generator of SQLite with
 a template for Go. It is a tool of the build. The parser that it writes
 imports no package. Every statement in this file was run with lemongrass
-0.1.0 and Go 1.24.7.
+0.1.0 and Go 1.24.7. lemongrass 0.1.1 has the same generator and the same
+template. The one difference is the version that the option `-x` prints.
 
 ---
 
@@ -22,7 +22,7 @@ imports no package. Every statement in this file was run with lemongrass
 ```
 $ lemongrass -x
 Lemon version 1.0
-lemongrass version 0.1.0
+lemongrass version 0.1.1
 
 $ lemongrass -q -l -T/usr/share/lemongrass/lempar.go grammar.y
 ```
@@ -30,8 +30,12 @@ $ lemongrass -q -l -T/usr/share/lemongrass/lempar.go grammar.y
 - The call writes `grammar.go` beside `grammar.y`. The name of the parser
   file is the name of the grammar file with the suffix `.go`. With `-dDIR`
   the file goes to the directory DIR.
-- `-T` names the template for Go. Without it lemongrass writes a parser in
-  C.
+- `-T` names the template for Go, with its full path. The installed program
+  does not look into `/usr/share/lemongrass`. Without `-T` it takes a file
+  `grammar.lt` beside the grammar. Without that file it takes the C
+  template `lempar.c` from the current directory, from the directory of the
+  program or from a directory of `PATH`. It stops with an error when it
+  finds none of them.
 - `-q` stops the report file `grammar.out`.
 - `-l` stops the `//line` directives. Without `-l` these directives have
   the file names of the call.

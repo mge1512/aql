@@ -9,7 +9,7 @@ Language: Go
 Module:   github.com/mge1512/aql/go/aql
 Package:  aql
 
-Every statement about a tool in this file was run with lemongrass 0.1.0,
+Every statement about a tool in this file was run with lemongrass 0.1.1,
 re2c 4.6 and Go 1.24.7, on the specification at Version 0.6.0.
 
 ## 1. Identity, place and version
@@ -58,7 +58,7 @@ a tab.
 # Tools of the build and their pinned versions.
 LEMONGRASS          ?= lemongrass
 LEMONGRASS_TEMPLATE ?= /usr/share/lemongrass/lempar.go
-LEMONGRASS_VERSION   = 0.1.0
+LEMONGRASS_VERSION   = 0.1.1
 RE2C                ?= re2c
 RE2C_VERSION         = 4.6
 SPEC                ?= ../../specification/libaql.spec.md
@@ -112,8 +112,10 @@ clean:
   the specification.
 - `generate` is for the translator and the maintainer. A package build
   never calls it.
-- The path of the Go template of lemongrass depends on the package of
-  lemongrass. `LEMONGRASS_TEMPLATE` is the one place that names it.
+- The command `make install PREFIX=/usr` of lemongrass installs the Go
+  template as `/usr/share/lemongrass/lempar.go`. A package with another
+  prefix has another path. `LEMONGRASS_TEMPLATE` is the one place that
+  names the path.
 - The release tarball of `dist` keeps the layout of the repository:
   `specification/libaql.spec.md` and `go/aql/`. The value of `SPEC` then
   works in a package build without a change.
@@ -298,7 +300,7 @@ order. It found each of them.
 
 ## 10. Packaging
 
-- The package build needs Go, lemongrass 0.1.0 and re2c 4.6. The versions
+- The package build needs Go, lemongrass 0.1.1 and re2c 4.6. The versions
   are exact, because the build compares the generated files.
 - The build needs no network and downloads nothing.
 - The package build calls `make build` and `make test` in `go/aql/`.

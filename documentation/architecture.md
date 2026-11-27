@@ -226,7 +226,7 @@ Versions:
 The parser generator is [lemongrass](https://github.com/mge1512/lemongrass).
 It is the Lemon parser generator of SQLite with one addition: a template can
 describe the syntax of its target language. lemongrass has templates for C, Go
-and Rust. The bindings pin its first release, 0.1.0. An earlier plan had
+and Rust. The bindings pin its release 0.1.1. An earlier plan had
 goyacc for the Go binding and no generator for the Rust binding.
 
 Reasons:
