@@ -4,6 +4,7 @@ Template:  library
 Language:  Go
 Library:   lemongrass (https://github.com/mge1512/lemongrass)
 Version:   0.1.1
+Release:   1
 
 `Version` is the version of the tool. `Release` counts the changes of this
 file since `Version` was last set; a new version of the tool removes the
@@ -12,8 +13,9 @@ line.
 lemongrass is a parser generator: the Lemon parser generator of SQLite with
 a template for Go. It is a tool of the build. The parser that it writes
 imports no package. Every statement in this file was run with lemongrass
-0.1.0 and Go 1.24.7. lemongrass 0.1.1 has the same generator and the same
-template. The one difference is the version that the option `-x` prints.
+0.1.0 and Go 1.24.7. lemongrass 0.1.1 has the same template and writes the
+same parser file, byte for byte. Its generator has the new options
+`--help` and `--version`, and the option `-x` prints the new version.
 
 ---
 
