@@ -10,7 +10,7 @@ Module:   github.com/mge1512/aql/go/aql
 Package:  aql
 
 Every statement about a tool in this file was run with lemongrass 0.1.1,
-re2c 4.6 and Go 1.24.7, on the specification at Version 0.6.0.
+re2c 4.6 and Go 1.24.7, on the specification at Version 0.7.0.
 
 ## 1. Identity, place and version
 
@@ -83,6 +83,7 @@ check-tools:
 generate: check-tools
 	$(LEMONGRASS) $(LEMONGRASS_FLAGS) grammar.y
 	$(RE2C) $(RE2C_FLAGS) lexer.re -o lexer.go
+	chmod 644 lexer.go
 
 # The generated files in this directory must be what the tools write now.
 check-generated: check-tools
@@ -112,6 +113,9 @@ clean:
   the specification.
 - `generate` is for the translator and the maintainer. A package build
   never calls it.
+- re2c writes its output file with the mode 0600. `generate` therefore
+  sets the mode 0644, so that a tarball of the working tree has a file
+  that every user can read.
 - The command `make install PREFIX=/usr` of lemongrass installs the Go
   template as `/usr/share/lemongrass/lempar.go`. A package with another
   prefix has another path. `LEMONGRASS_TEMPLATE` is the one place that
@@ -151,11 +155,18 @@ clean:
 - The content of a TEXT comes from its run by the rules for tokens. Code
   that reads a run to find its value is allowed.
 - A NUMBER keeps every digit. Keep its run as text. Do not use `float64`.
-- A Go string can have bytes that are not valid UTF-8. The specification
-  does not say what the library does with them. Add no check of your own.
-  Outside a text the rule `*` wins at such a byte. Inside a text the row
-  open_1 or open_2 wins, because no pattern takes the byte. Name this in
-  the report under the ambiguities of the specification.
+- A Go string can have bytes that are not valid UTF-8. Check 1a of
+  parse-statement is `utf8.ValidString(text)`, and it comes before every
+  other use of the text. For the position in the message S21, walk the
+  text with `utf8.DecodeRuneInString`. The first result `utf8.RuneError`
+  with the width 1 is the place that is not valid. The position is the
+  number of the characters before it, plus 1.
+- The two checks of step 1 keep no copy of the text. Use
+  `utf8.ValidString` and `utf8.RuneCountInString` for them, and make no
+  `[]rune` of the text before both have passed.
+- The tokenizers therefore never get a byte that is not valid UTF-8. The
+  rule `*` stays in `lexer.re`. Without it re2c warns that the tokenizer
+  has no rule for such bytes.
 
 ## 5. parse-statement: the parser comes from lemongrass
 
@@ -173,8 +184,15 @@ clean:
   1000 entries. With the default of 100 the parser fails for correct
   statements.
 - Use the index of a token in the token list as the value of a token:
-  `%token_type {int}`. The value of `%extra_argument` has the token list,
-  and an action reads the text and the value of a token there.
+  `%token_type {int}`. An action keeps such indices in the node that it
+  builds, and it reads no token. The code that builds the Statement reads
+  the tokens after the parse. The value of `%extra_argument` has the
+  result of the parse and no token list.
+- A trial of classify-failure is safe with this form. Its last token has
+  an index outside the token list, and no action reads it.
+- In Go, `allowed_kinds` is a `[]StatementKind`. The functions `ReadSet()`
+  and `WriteSet()` return the two sets. Steps 5c and 6 tell the read set
+  by its members select and describe.
 - The kind END is the token number 0.
 - Steps 4 to 7 look at the tokens before the parser runs.
 - Stop at the first token that the parser refuses. The parser can report
@@ -203,6 +221,8 @@ clean:
   cut a character in two. Cut with `[]rune(s)[:n]` or with a loop over the
   characters.
 - `<where>` and every position in a message count characters from 1.
+- Capital letters in a message are made like the keywords of section 4:
+  only the letters `a` to `z` change.
 
 ## 8. The check against the specification
 
@@ -296,6 +316,8 @@ order. It found each of them.
 
 - The EXAMPLES are the tests. Some of them describe a long statement by a
   part that repeats. Build these with `strings.Repeat`.
+- The example text_that_is_not_valid needs a byte that is not valid UTF-8.
+  Write it as `\xff` in a Go string.
 - `make test` runs the checks of section 3 first and then `go test ./...`.
 
 ## 10. Packaging
@@ -304,6 +326,9 @@ order. It found each of them.
   are exact, because the build compares the generated files.
 - The build needs no network and downloads nothing.
 - The package build calls `make build` and `make test` in `go/aql/`.
+- The directory `debian/` is in `go/aql/`, with the rest of the result.
+  Its `rules` file works from the top of the `dist` tarball, so its paths
+  start with `go/aql/`.
 
 ## 11. What not to build
 

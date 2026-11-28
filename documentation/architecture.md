@@ -344,9 +344,9 @@ What follows for a binding:
 8. aha-aql moves to libaql. Its recorded probe statements are the regression
    check.
 
-A first translation of the front end to Go comes before step 2. It proves the
-tools of 4.11 and 4.12 on the specification as it is, before more of the
-specification is built on them.
+The first translation of the front end to Go was made from Version 0.6.0,
+before step 2. It proved the tools of 4.11 and 4.12 on the specification as
+it was. Its findings went into Version 0.7.0.
 
 ## 6. Open points
 
@@ -360,11 +360,12 @@ specification is built on them.
 - The Unicode version. Both bindings take the classes for letters and spaces
   from the same file of re2c, so the pinned version of re2c decides it. The
   specification names no Unicode version.
-- A text that is not valid Unicode. Some languages allow such a text in a
-  string, other languages do not. The specification does not say yet what the
-  library does with it. A tokenizer from re2c takes a byte that is not valid
-  UTF-8 for no character. Outside a text no row fits then. Inside a text the
-  text does not end.
+- Control characters in a message. S02 shows the character that starts no
+  token, and `<where>` shows a part of the statement. A text of a statement
+  can have control characters, and a message then has them too.
+- The names that a parser file from lemongrass exports in Go. The first
+  translation has about 30 names that start with `YY` in the package. They
+  need a change of the Go template before the first release of the binding.
 - The notation for catalog tables. It could extend the TYPE tables of PCD.
 - Lint rules in PCD for the token table and the grammar block.
 - A statement for actions that are not records.

@@ -2,7 +2,7 @@
 
 ## META
 Deployment:   library
-Version:      0.6.0
+Version:      0.7.0
 Spec-Schema:  0.4.0
 Author:       Matthias G. Eckermann <mge@mailbox.org>
 License:      MIT
@@ -207,7 +207,9 @@ PRECONDITIONS:
 - guide.example is a read statement that this BEHAVIOR accepts
 
 STEPS:
-1. Length. If text has more than MaxStatementLength characters → syntax, message L01.
+1. The text as a whole. The two checks of this step read the text and keep no copy of it. A text that fails one of them gets no other work.
+   a. Valid text. If text is not valid text → syntax, message S21 with the position of the first place that is not valid.
+   b. Length. If text has more than MaxStatementLength characters → syntax, message L01.
 2. Strict reading. Run tokenize with lenient false and read its tokens with steps 4 to 9. If this succeeds, its result is the result.
 3. Second reading. It is made when step 2 failed and the text has an apostrophe directly between a letter or digit and a letter, in the classes of tokenize. Run tokenize with lenient true and read its tokens with steps 4 to 9. If this succeeds, its result is the result. If it fails → the error of step 2.
 4. Nesting. For each token, count the parentheses that are open there: the LPAREN tokens up to and including the token, less the RPAREN tokens before it. If the count is above MaxNesting at a token → syntax, message L03 with the position of the first such token.
@@ -220,6 +222,14 @@ STEPS:
 8. Parse the tokens with the grammar below. If the tokens are not a statement of the grammar → the error of classify-failure.
    MECHANISM: a parser generator builds the parser from the grammar. The grammar is LALR(1), and the generator reports no conflict.
 9. Run check-forms on the tokens and on the statement that the grammar found. If it has a finding → its error. Otherwise build the Statement by the reading rules below.
+
+Valid text. A text is valid when it is a sequence of characters and none
+of them is a surrogate code point. In some programming languages a text
+can have other content, for example bytes that are not UTF-8. In such a
+language a text can be not valid. The position of its first place that is
+not valid is the number of the characters before that place, plus 1. In a
+language where every text is a sequence of characters, check 1a always
+passes.
 
 Grammar. It is written in the notation of the Lemon parser generator. A
 name in capital letters is a token kind, and every other name is a rule.
@@ -375,7 +385,7 @@ grammar.
 - The function of a call is its WORD, read without regard to case. `COUNT(*)` and `COUNT(1)` have no argument. DISTINCT inside a call sets distinct.
 - A source has the entity and, when a second WORD follows with or without AS, that WORD as its alias.
 - JOIN and INNER JOIN are the same. The two WORDs of ON are the left and the right of the Join, in the order of the statement.
-- NOT binds stronger than AND, and AND binds stronger than OR. Conditions that are joined by AND are the members of one AllOf, in their order. Conditions that are joined by OR are the members of one AnyOf. A condition in parentheses is that condition; the parentheses add nothing.
+- NOT binds stronger than AND, and AND binds stronger than OR. Conditions that are joined by AND are the members of one AllOf, in their order. Conditions that are joined by OR are the members of one AnyOf. A condition in parentheses is that condition, and it is one member of the AllOf or AnyOf around it. `(a OR b) OR c` is therefore an AnyOf with two members, and its first member is the AnyOf of a and b. The parentheses add nothing else.
 - NOT before a condition is a Negation of it. NOT before IN, CONTAINS, LIKE, BETWEEN or MATCH is a Negation of that comparison.
 - EQ gives the operator `=`, and CMP gives the operator of its text. `operand = NULL` is read as `operand IS NULL`, and `operand != NULL` as `operand IS NOT NULL`.
 - `operand BETWEEN a AND b` is read as an AllOf of `operand >= a` and `operand <= b`.
@@ -394,7 +404,7 @@ POSTCONDITIONS:
 - the result has every WORD as the statement writes it
 
 ERRORS:
-- syntax: L01; S04, S07, W01 and W02 for the kind; L03; S12; every error of tokenize, of classify-failure and of check-forms
+- syntax: S21 and L01 for the text as a whole; S04, S07, W01 and W02 for the kind; L03; S12; every error of tokenize, of classify-failure and of check-forms
 
 ## BEHAVIOR/INTERNAL: tokenize
 Constraint: required
@@ -414,6 +424,7 @@ tokens: List<Token> | AqlError
 ```
 
 PRECONDITIONS:
+- text is valid text, as parse-statement defines it
 - text has at most MaxStatementLength characters
 
 STEPS:
@@ -422,7 +433,7 @@ STEPS:
 3. Act by the kind of the row.
    a. skip: the run gives no token.
    b. open: the run is a text that does not end → syntax, message S01 with the position of the run.
-   c. bad: the run starts like a number or a date and goes on with other characters → syntax, message S02 with the first character of the run.
+   c. bad: the run starts like a number or a date and goes on with other characters → syntax, message S13 with the run as its `<word>`.
    d. Any other kind: the run is one token of that kind. Its values follow the rules for tokens below.
 4. If the statement now has more than MaxTokens tokens → syntax, message L02. Otherwise go on with the character after the run.
 
@@ -542,7 +553,7 @@ POSTCONDITIONS:
 - the runs of the tokens and of the skipped white space, in their order, are the text
 
 ERRORS:
-- syntax: a text that is not closed (S01); a character that starts no token, and a run that starts like a number or a date and is neither (S02); too many tokens (L02)
+- syntax: a text that is not closed (S01); a character that starts no token (S02); a run that starts like a number or a date and is neither (S13); too many tokens (L02)
 
 ## BEHAVIOR/INTERNAL: classify-failure
 Constraint: required
@@ -689,12 +700,12 @@ STEPS:
 | Row | Finding | Shows at | Message |
 |---|---|---|---|
 | C01 | A call of SUM, AVG, MIN or MAX with the argument `*` | the `*` | S03 at that token, `a field inside <FUNCTION>( )` |
-| C02 | A call of COUNT with a NUMBER as its argument, other than `COUNT(1)` | the NUMBER | S03 at that token, `a field or * inside COUNT( )` |
+| C02 | A call of COUNT with a NUMBER as its argument whose run is not `1` | the NUMBER | S03 at that token, `a field or * inside COUNT( )` |
 | C03 | A call of SUM, AVG, MIN or MAX with a NUMBER as its argument | the NUMBER | S03 at that token, `a field inside <FUNCTION>( )` |
 | C04 | The kind is select, and a call is the operand of a comparison in a WHERE condition | the WORD of the call | S18 |
 | C05 | A subquery inside a subquery | the SELECT of the inner subquery | S19 |
 | C06 | A subquery with more than one item, or with the item `*` or `t.*` | the SELECT of the subquery | S20 |
-| C07 | LIMIT with a number that is negative, that is not whole, or that has more than 9 digits | the NUMBER | S03 at that token, `a whole number after LIMIT` |
+| C07 | LIMIT with a NUMBER whose run starts with `-`, has a `.`, or has more than 9 digits | the NUMBER | S03 at that token, `a whole number after LIMIT` |
 | C08 | NULL as the value after a CMP other than `!=`, after CONTAINS or after LIKE, or as a value of BETWEEN | the NULL | S03 at that token, `a value in single quotes` |
 | C09 | LIKE with a TEXT whose content has more than MaxPatternLength characters | the TEXT | L04 |
 | C10 | The kind is insert or update, and NULL is a value of VALUES or the value of an assignment | the NULL | W11 |
@@ -707,6 +718,11 @@ letters. In C04, `<FUNCTION>` of S18 is that function too. In C11, `<n>` of
 W08 is the number of columns and `<m>` the number of values. The WHERE
 condition of a subquery counts for C04 like the one of the statement. A
 HAVING condition is no WHERE condition.
+
+C02 and C07 read the run of the NUMBER as it is written, not its value.
+`COUNT(01)`, `LIMIT -0`, `LIMIT 2.0` and `LIMIT 0000000001` are therefore
+findings. For C12 and C13, the WHERE condition is every token after the
+WHERE of the statement. The tokens of a subquery there are part of it.
 
 POSTCONDITIONS:
 - with the result none, the condition of an UPDATE or a DELETE is one comparison of the form `WORD = value`, or several of them joined by AND
@@ -740,8 +756,8 @@ PRECONDITIONS:
 
 STEPS:
 1. Take the text of the ID from the tables below and replace every placeholder. The ID itself is not part of the message.
-2. A placeholder that repeats a word of the statement has at most MaxEcho characters of it. For a longer word it has the first MaxEcho characters, followed by three periods. This rule is for `<word>`, `<field>`, `<entity>` and `<NAME>`.
-3. `<NAME>`, `<FUNCTION>` and `<KEYWORD>` are in capital letters.
+2. A placeholder that repeats a word of the statement has at most MaxEcho characters of it. For a longer word it has the first MaxEcho characters, followed by three periods. When a period of the message stands directly after such a placeholder, the three periods take its place. This rule is for `<word>`, `<field>`, `<entity>`, `<NAME>`, `<FUNCTION>` and `<KEYWORD>`. The last two are names of this specification and never have more than MaxEcho characters.
+3. `<NAME>`, `<FUNCTION>` and `<KEYWORD>` are in capital letters. Only the letters a to z change, and every other character stays as the statement has it.
 4. A hint that is not empty starts with one space, so that it can follow the period of the sentence before it.
 
 The messages speak of the query tool and the execute tool. They are the two
@@ -778,7 +794,7 @@ Messages for a statement that cannot be read:
 | ID | Kind | Text |
 |---|---|---|
 | S01 | syntax | `the text that starts with the <quote> at position <n> is not closed.<text hint>` |
-| S02 | syntax | `unexpected character <c> at position <n>.<apostrophe hint>` |
+| S02 | syntax | `unexpected character <c> at position <n>. Remove it, or put the text in single quotes: 'like this'.<apostrophe hint>` |
 | S03 | syntax | `cannot read the statement at <where><expected>.<apostrophe hint> Form: <read form>. Example: <example>` |
 | S04 | syntax | `a statement starts with SELECT or DESCRIBE.<apostrophe hint> Form: <read form>. Example: <example>` |
 | S07 | syntax | `query only reads. Use the execute tool for INSERT, UPDATE and DELETE.` |
@@ -793,6 +809,7 @@ Messages for a statement that cannot be read:
 | S18 | syntax | `<FUNCTION>( ) cannot stand in WHERE. Use it after GROUP BY, in the form: SELECT field, COUNT(*) FROM entity GROUP BY field HAVING COUNT(*) > 1` |
 | S19 | syntax | `a subquery cannot contain another subquery. Send the inner one as its own statement first.` |
 | S20 | syntax | `a subquery selects one field, in the form: field IN (SELECT field FROM entity WHERE ...)` |
+| S21 | syntax | `the statement is not valid Unicode text at position <n>. Send the statement as plain text in UTF-8.` |
 
 The IDs are not continuous.
 
@@ -802,7 +819,9 @@ is not empty. Otherwise it is ` Text goes in single quotes: 'like this'.`
 for a text that starts with an apostrophe, and ` Use single quotes for
 text: 'like this'.` for a text that starts with a double quote.
 
-In S02, `<c>` is the character and `<n>` its position.
+In S02, `<c>` is the character and `<n>` its position. In S13 from tokenize,
+`<word>` is the run of the row. In S21, `<n>` is the position of the first
+place that is not valid.
 
 In S12, `<NAME>` is the WORD before the LPAREN.
 
@@ -817,7 +836,7 @@ Messages of write statements:
 | W05 | syntax | `one statement changes one record: the WHERE must start with id = '...'. Further conditions are joined with AND and have the form field = 'value'. To change several records, find their ids with the query tool and send one statement per record.` |
 | W06 | syntax | `after WHERE id = '...', further conditions must have the form AND field = 'value'. For a field without a value write: AND field = ''` |
 | W07 | syntax | `one INSERT creates one record. Send one statement per record.` |
-| W08 | syntax | `<n> fields but <m> values` |
+| W08 | syntax | `<n> fields but <m> values. Write one value for each field: INSERT INTO entity (field, ...) VALUES ('value', ...)` |
 | W10 | syntax | `a field can only be set to a value, not to an expression` |
 | W11 | syntax | `NULL cannot be written. Leave the field out.` |
 
@@ -885,10 +904,12 @@ generator and a lexer generator are tools of the build.
 - [observable] every syntax error shows a form or a statement, or says in plain words what to send instead, and every statement that a message shows as its example is accepted by parse-statement
 - [observable] no message repeats more than MaxEcho characters of one word of the statement, and no message shows more than ExcerptLength characters from the place of a failure
 - [observable] a statement with more than MaxStatementLength characters, with more than MaxTokens tokens or with more than MaxNesting open parentheses is refused with the message of that limit
+- [observable] a text that is not valid text is refused with the message S21, and no other check comes before this one
 - [observable] the failing token of a statement and the kinds that can come next follow from the grammar alone
 - [implementation] the parser is built from the grammar of parse-statement by a parser generator, and the generator reports no conflict
 - [implementation] the patterns and the rules in the implementation are those of the token table and of the grammar of this specification, and a check in the build compares them
 - [implementation] the implementation has no scanner and no parser that is written by hand
+- [implementation] the checks of step 1 of parse-statement keep no copy of the text, and a text that they refuse gets no other work
 
 ## EXAMPLES
 
@@ -1006,6 +1027,18 @@ THEN:
     source: { entity: tickets }
     where:  AllOf [ Negation { InList { operand: status, values: ['closed', 'done'] } }, Negation { AnyOf [ priority = 1, priority = 2 ] } ]
 
+### EXAMPLE: parentheses_keep_their_group (of: parse-statement)
+GIVEN:
+  the fixture guide
+WHEN:
+  parse-statement reads, with the read set,
+  `SELECT id FROM tickets WHERE (status = 'open' OR status = 'new') OR priority = 1`
+THEN:
+  the result is the ReadStatement
+    items:  [id]
+    source: { entity: tickets }
+    where:  AnyOf [ AnyOf [ status = 'open', status = 'new' ], priority = 1 ]
+
 ### EXAMPLE: aggregates_with_distinct_and_label (of: parse-statement)
 GIVEN:
   the fixture guide
@@ -1110,6 +1143,16 @@ THEN:
   the result is an error of the kind syntax with the message
   `the statement has 70038 characters, and a statement has at most 65536. Send a shorter statement.`
 
+### EXAMPLE: text_that_is_not_valid (of: parse-statement)
+GIVEN:
+  the fixture guide
+  a text that is not valid, in a language where a text can have such content: `SELECT id FROM tickets WHERE name = '` in UTF-8, then one byte with the value 255, then `'`
+WHEN:
+  parse-statement reads this text with the read set
+THEN:
+  the result is an error of the kind syntax with the message
+  `the statement is not valid Unicode text at position 38. Send the statement as plain text in UTF-8.`
+
 ### EXAMPLE: texts_with_quotes_inside (of: tokenize)
 GIVEN:
   the fixture guide
@@ -1190,7 +1233,7 @@ WHEN:
   and tokenize finds no row for the character [
 THEN:
   the result is an error of the kind syntax with the message
-  `unexpected character [ at position 8.`
+  `unexpected character [ at position 8. Remove it, or put the text in single quotes: 'like this'.`
 
 ### EXAMPLE: number_followed_by_letters (of: tokenize)
 GIVEN:
@@ -1201,7 +1244,7 @@ WHEN:
   and tokenize takes the row bad_num, whose run 12abc is longer than the run 12 of the row number
 THEN:
   the result is an error of the kind syntax with the message
-  `unexpected character 1 at position 41.`
+  `text goes in single quotes: write '12abc' instead of 12abc`
 
 ### EXAMPLE: statement_without_a_kind (of: parse-statement)
 GIVEN:
@@ -1606,6 +1649,28 @@ THEN:
   the result is an error of the kind syntax with the message
   `cannot read the statement at position 29 (2.5): expected a whole number after LIMIT. Form: SELECT fields FROM entity [JOIN entity ON a.field = b.field] [WHERE field = 'value' [AND ...]] [GROUP BY field [HAVING COUNT(*) > 1]] [ORDER BY field [DESC]] [LIMIT n]. Example: SELECT id, name, status FROM tickets WHERE project = 'P-1'`
 
+### EXAMPLE: number_is_read_as_written (of: check-forms)
+GIVEN:
+  the fixture guide
+WHEN:
+  parse-statement reads, with the read set,
+  `SELECT * FROM tickets LIMIT 10.0`
+  and check-forms takes the row C07, because the run of the NUMBER has a point
+THEN:
+  the result is an error of the kind syntax with the message
+  `cannot read the statement at position 29 (10.0): expected a whole number after LIMIT. Form: SELECT fields FROM entity [JOIN entity ON a.field = b.field] [WHERE field = 'value' [AND ...]] [GROUP BY field [HAVING COUNT(*) > 1]] [ORDER BY field [DESC]] [LIMIT n]. Example: SELECT id, name, status FROM tickets WHERE project = 'P-1'`
+
+### EXAMPLE: count_of_a_number_is_read_as_written (of: check-forms)
+GIVEN:
+  the fixture guide
+WHEN:
+  parse-statement reads, with the read set,
+  `SELECT COUNT(01) FROM tickets`
+  and check-forms takes the row C02, because the run of the NUMBER is not 1
+THEN:
+  the result is an error of the kind syntax with the message
+  `cannot read the statement at position 14 (01) FROM tickets): expected a field or * inside COUNT( ). Form: SELECT fields FROM entity [JOIN entity ON a.field = b.field] [WHERE field = 'value' [AND ...]] [GROUP BY field [HAVING COUNT(*) > 1]] [ORDER BY field [DESC]] [LIMIT n]. Example: SELECT id, name, status FROM tickets WHERE project = 'P-1'`
+
 ### EXAMPLE: null_after_an_ordering_operator (of: check-forms)
 GIVEN:
   the fixture guide
@@ -1637,7 +1702,7 @@ WHEN:
   and check-forms takes the row C11
 THEN:
   the result is an error of the kind syntax with the message
-  `2 fields but 1 values`
+  `2 fields but 1 values. Write one value for each field: INSERT INTO entity (field, ...) VALUES ('value', ...)`
 
 ### EXAMPLE: or_in_the_where_of_a_write_statement (of: check-forms)
 GIVEN:
@@ -1671,6 +1736,28 @@ WHEN:
 THEN:
   the result is an error of the kind syntax with the message
   `text goes in single quotes: write 'abcdefghijklmnopqrstuvwxyzabcdefghijklmn...' instead of abcdefghijklmnopqrstuvwxyzabcdefghijklmn...`
+
+### EXAMPLE: long_function_name_is_cut (of: syntax-messages)
+GIVEN:
+  the fixture guide
+WHEN:
+  parse-statement reads, with the read set,
+  `SELECT abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrs(estimate) FROM tickets`
+  where the word before the ( has 45 characters. syntax-messages cuts it, and the three periods take the place of the period after it
+THEN:
+  the result is an error of the kind syntax with the message
+  `unknown function ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMN... Functions: COUNT, SUM, AVG, MIN, MAX. Example: SELECT COUNT(*) FROM tickets`
+
+### EXAMPLE: function_name_with_another_letter (of: syntax-messages)
+GIVEN:
+  the fixture guide
+WHEN:
+  parse-statement reads, with the read set,
+  `SELECT zähle(id) FROM tickets`
+  and syntax-messages writes only the letters a to z of the name as capital letters
+THEN:
+  the result is an error of the kind syntax with the message
+  `unknown function ZäHLE. Functions: COUNT, SUM, AVG, MIN, MAX. Example: SELECT COUNT(*) FROM tickets`
 
 ### EXAMPLE: apostrophe_hint_in_a_message (of: syntax-messages)
 GIVEN:

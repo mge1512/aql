@@ -4,7 +4,7 @@ Template:  library
 Language:  Go
 Library:   re2c (https://re2c.org)
 Version:   4.6
-Release:   1
+Release:   2
 
 `Version` is the version of the tool. `Release` counts the changes of this
 file since `Version` was last set; a new version of the tool removes the
@@ -156,3 +156,7 @@ fast: both together read 40000 short texts in less than 0.1 seconds.
   line and the classes of characters change with it.
 - No use of the `regexp` package beside the tokenizer to decide what a
   token is. The rules decide it.
+- re2c writes its output file with the mode 0600, whatever the umask is.
+  Set the mode after the call, for example with `chmod 644 lexer.go`.
+  Otherwise a tarball of the working tree has a file that only its owner
+  can read.
